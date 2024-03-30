@@ -35,6 +35,13 @@ const Product = mongoose.model("Product", {
   unit: String,
 });
 
+const Category = mongoose.model("Category", {
+  id: String,
+  category_name: String,
+  create_at: { type: Date, default: Date.now },
+  update_at: { type: Date, default: Date.now },
+});
+
 app.use(bodyParser.json());
 const Member = mongoose.model("Member", {
   username: String,
