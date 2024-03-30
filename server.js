@@ -1,18 +1,17 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-
+const cors = require("cors"); // 引入cors模块
 const app = express();
 const port = process.env.PORT || 3000;
-
+const swaggerJsdoc = require("swagger-jsdoc");
+const swaggerUi = require("swagger-ui-express");
 const dotEnv = require("dotenv");
 dotEnv.config();
-// 连接到 MongoDB 数据库
 
 mongoose.connect(process.env.DATABASE, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  // useCreateIndex: true,
 });
 
 mongoose.connection.on("connected", () => {
@@ -37,8 +36,59 @@ const Product = mongoose.model("Product", {
 });
 
 app.use(bodyParser.json());
+const Member = mongoose.model("Member", {
+  username: String,
+  password: String,
+});
 
-// 获取所有产品
+app.use(bodyParser.json());
+
+// JWT验证中间件
+const verifyToken = (req, res, next) => {
+  const token = req.headers["authorization"];
+  if (!token) return res.status(401).send("Access Denied");
+
+  try {
+    const verified = jwt.verify(token, process.env.TOKEN_SECRET);
+    req.member = verified;
+    next();
+  } catch (err) {
+    res.status(400).send("Invalid Token");
+  }
+};
+
+// Swagger配置
+const swaggerOptions = {
+  swaggerDefinition: {
+    openapi: "3.0.0",
+    info: {
+      title: "香水電商測試網站",
+      version: "1.0.0",
+      description: "專題",
+    },
+    servers: [
+      {
+        url: `http://localhost:${port}`,
+        description: "Development server",
+      },
+    ],
+  },
+  apis: ["./index.js"], // 指定API文件路径
+};
+
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+app.use(cors());
+//NOTE - 取得產品列表
+/**
+ * @swagger
+ * /products:
+ *   get:
+ *     summary:
+ *     responses:
+ *       200:
+ *         description: 產品列表
+ */
 app.get("/products", async (req, res) => {
   try {
     const products = await Product.find();
@@ -48,7 +98,6 @@ app.get("/products", async (req, res) => {
   }
 });
 
-// 获取单个产品
 app.get("/products/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -63,7 +112,6 @@ app.get("/products/:id", async (req, res) => {
   }
 });
 
-// 创建新产品
 app.post("/products", async (req, res) => {
   try {
     const product = new Product(req.body);
@@ -74,7 +122,6 @@ app.post("/products", async (req, res) => {
   }
 });
 
-// 更新产品
 app.put("/products/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -86,7 +133,6 @@ app.put("/products/:id", async (req, res) => {
   }
 });
 
-// 删除产品
 app.delete("/products/:id", async (req, res) => {
   try {
     const id = req.params.id;
@@ -97,7 +143,34 @@ app.delete("/products/:id", async (req, res) => {
   }
 });
 
-// 启动服务器
+app.post("/register", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const member = new Member({ username, password });
+    await member.save();
+    res.status(201).send("User registered");
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+app.post("/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const member = await Member.findOne({ username });
+    if (!member) return res.status(400).send("Username not found");
+
+    if (member.password !== password)
+      return res.status(400).send("Invalid password");
+
+    // 创建并分发 JWT 令牌
+    const token = jwt.sign({ _id: member._id }, process.env.TOKEN_SECRET);
+    res.header("authorization", token).send(token);
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });
