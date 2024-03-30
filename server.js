@@ -178,6 +178,62 @@ app.post("/login", async (req, res) => {
   }
 });
 
+app.post("/categories", async (req, res) => {
+  try {
+    const category = new Category(req.body);
+    await category.save();
+    res.status(201).send("Category added");
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+app.get("/categories", async (req, res) => {
+  try {
+    const categories = await Category.find();
+    res.json(categories);
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+app.get("/categories/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const category = await Category.findOne({ id: id });
+    if (category) {
+      res.json(category);
+    } else {
+      res.status(404).send("Category not found");
+    }
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+// 更新 Category
+app.put("/categories/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const updatedCategory = req.body;
+    await Category.findOneAndUpdate({ id: id }, updatedCategory);
+    res.send("Category updated");
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+// 删除 Category
+app.delete("/categories/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    await Category.findOneAndDelete({ id: id });
+    res.send("Category deleted");
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });
